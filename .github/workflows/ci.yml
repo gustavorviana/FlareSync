@@ -40,13 +40,16 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # The version computed here is what the build and release jobs consume.
     outputs:
-      version: ${{ steps.tag.outputs.new_version }}
-      tag: ${{ steps.tag.outputs.new_tag }}
-      changelog: ${{ steps.tag.outputs.changelog }}
+      version: ${{ steps.semver.outputs.new_version }}
+      tag: ${{ steps.semver.outputs.new_tag }}
+      changelog: ${{ steps.semver.outputs.changelog }}
     steps:
-      # Dry run: only compute the version. The tag is created by the release job, after the builds succeed.
-      - id: tag
+      # Dry run: only computes the version. The tag is created by the release job, after the builds succeed.
+      # default_bump false: only feat, fix/perf and breaking changes produce a release.
+      - name: Compute the next version (semver)
+        id: semver
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -54,13 +57,44 @@ jobs:
           tag_prefix: v
           default_bump: false
           dry_run: true
-      - name: Summary
+
+      - name: Publish the versions to the log, summary and environment
+        env:
+          PREVIOUS_VERSION: ${{ steps.semver.outputs.previous_version }}
+          PREVIOUS_TAG: ${{ steps.semver.outputs.previous_tag }}
+          NEW_VERSION: ${{ steps.semver.outputs.new_version }}
+          NEW_TAG: ${{ steps.semver.outputs.new_tag }}
         run: |
-          if [ -n "${{ steps.tag.outputs.new_version }}" ]; then
-            echo "Next version: ${{ steps.tag.outputs.new_tag }} (${{ steps.tag.outputs.release_type }})" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+
+          if [ -z "$NEW_VERSION" ]; then
+            echo "No new version from the commits since ${PREVIOUS_TAG:-the start of the history}."
+            # Without any tag the action compares HEAD with HEAD and sees no commits at all.
+            if [ "$PREVIOUS_TAG" = "v0.0.0" ]; then
+              echo "::warning title=No version tag::No vX.Y.Z tag exists, so no commit was analyzed. Create an initial tag (git tag v0.1.0 <commit> && git push origin v0.1.0) and re-run."
+            fi
           else
-            echo "No feat/fix/perf or breaking commit since ${{ steps.tag.outputs.previous_tag }}: no release." >> "$GITHUB_STEP_SUMMARY"
+            echo "Previous version: ${PREVIOUS_VERSION:-<none>} (${PREVIOUS_TAG:-<no tag>})"
+            echo "New version:      $NEW_VERSION ($NEW_TAG)"
           fi
+
+          # Also in the run summary, so the log does not need to be opened.
+          {
+            echo "### Version"
+            echo ""
+            echo "| | Version | Tag |"
+            echo "| --- | --- | --- |"
+            echo "| Previous | ${PREVIOUS_VERSION:-—} | ${PREVIOUS_TAG:-—} |"
+            echo "| New | ${NEW_VERSION:-— (no release)} | ${NEW_TAG:-—} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Available to the next steps of this job as $NEW_VERSION, $NEW_TAG, $PREVIOUS_VERSION and $PREVIOUS_TAG.
+          {
+            echo "PREVIOUS_VERSION=$PREVIOUS_VERSION"
+            echo "PREVIOUS_TAG=$PREVIOUS_TAG"
+            echo "NEW_VERSION=$NEW_VERSION"
+            echo "NEW_TAG=$NEW_TAG"
+          } >> "$GITHUB_ENV"
 
   build:
     name: Build (${{ matrix.rid }})
