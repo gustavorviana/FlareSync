@@ -1,0 +1,32 @@
+[Unit]
+Description=FlareSync dynamic DNS client
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+User=flaresync
+Group=flaresync
+ExecStart=/opt/flaresync/flaresync run
+Restart=on-failure
+RestartSec=30
+
+# Recommended: supply the master key as an encrypted credential instead of config/secret.key.
+# See README.md, "Protecting the master key".
+#LoadCredentialEncrypted=flaresync-key:/etc/credstore.encrypted/flaresync-key
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/flaresync/config
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

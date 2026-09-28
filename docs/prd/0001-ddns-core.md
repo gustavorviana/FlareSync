@@ -41,6 +41,10 @@ services such as No-IP.
 - **FR-012** A failure while updating one record does not prevent the other records from being updated.
 - **FR-013** If an address family cannot be detected, records needing it are skipped with a warning.
 - **FR-014** A forced sync ignores the persisted state and asks providers to upsert every record.
+- **FR-016** Every time a provider is contacted for a record, the outcome is logged with the host name, address family
+  and target address: record created, updated (with the previous value), already up to date (Information) or failed
+  (Error, with the reason). The public address is logged when first detected and when it changes; a detection failure
+  is warned once when it starts and reported again when the address becomes available.
 - **FR-015** The persisted state (`state.json`) stores, per provider/record/family, the last applied address and timestamp.
 
 ### Service mode
