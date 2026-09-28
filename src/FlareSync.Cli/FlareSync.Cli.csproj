@@ -21,6 +21,8 @@
     <AssemblyName>flaresync</AssemblyName>
     <RootNamespace>FlareSync.Cli</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- The version option shows only X.Y.Z, without the "+<commit hash>" suffix. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <!-- dotnet publish src/FlareSync.Cli -c Release -r linux-x64 -->
