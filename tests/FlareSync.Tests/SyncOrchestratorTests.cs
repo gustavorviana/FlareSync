@@ -28,22 +28,30 @@ public class SyncOrchestratorTests
     {
         public string Name => "fake";
 
+        /// <summary>One entry per changed family, flattened from <see cref="Updates"/>.</summary>
         public List<(string Hostname, IpFamily Family, IPAddress Address)> Upserts { get; } = [];
+
+        public List<DnsUpdate> Updates { get; } = [];
 
         public HashSet<string> Failing { get; } = [];
 
         public Task<IReadOnlyList<DnsTarget>> GetTargetsAsync(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<DnsTarget>>(targets);
 
-        public Task<SyncResult> UpsertAsync(DnsTarget target, IpFamily family, IPAddress address, CancellationToken cancellationToken)
+        public Task<IReadOnlyDictionary<IpFamily, SyncResult>> UpdateAsync(DnsUpdate update, CancellationToken cancellationToken)
         {
-            Upserts.Add((target.Hostname, family, address));
-            if (Failing.Contains(target.Hostname))
+            Updates.Add(update);
+            foreach (var family in update.Changed)
+            {
+                Upserts.Add((update.Target.Hostname, family, update.Addresses[family]));
+            }
+
+            if (Failing.Contains(update.Target.Hostname))
             {
                 throw new InvalidOperationException("api down");
             }
 
-            return Task.FromResult(SyncResult.Updated());
+            return Task.FromResult<IReadOnlyDictionary<IpFamily, SyncResult>>(update.Changed.ToDictionary(f => f, _ => SyncResult.Updated()));
         }
     }
 
@@ -111,6 +119,41 @@ public class SyncOrchestratorTests
 
         Assert.Single(logger.Entries, e => e.Level == LogLevel.Warning);
         Assert.Contains(logger.Entries, e => e.Level == LogLevel.Information && e.Message.Contains("detected again"));
+    }
+
+    [Fact]
+    [Trait("Req", "FR-305")]
+    public async Task Sends_one_update_per_target_with_every_detected_address()
+    {
+        using var temp = new TempConfig();
+        var provider = new FakeProvider(new DnsTarget("fake", "a.example.com", true, true));
+
+        await Create(temp, provider, new FakeResolver(V4, V6)).RunOnceAsync(force: false, CancellationToken.None);
+
+        var update = Assert.Single(provider.Updates);
+        Assert.Equal(V4, update.Addresses[IpFamily.IPv4]);
+        Assert.Equal(V6, update.Addresses[IpFamily.IPv6]);
+        Assert.Equal([IpFamily.IPv4, IpFamily.IPv6], update.Changed.Order());
+    }
+
+    [Fact]
+    [Trait("Req", "FR-305")]
+    public async Task Unchanged_family_is_sent_along_but_not_marked_changed()
+    {
+        using var temp = new TempConfig();
+        var provider = new FakeProvider(new DnsTarget("fake", "a.example.com", true, true));
+        var resolver = new SwitchingResolver { V6 = null };
+        var orchestrator = Create(temp, provider, resolver);
+
+        await orchestrator.RunOnceAsync(force: false, CancellationToken.None); // IPv4 applied, IPv6 missing
+        resolver.V6 = V6;
+        var report = await orchestrator.RunOnceAsync(force: false, CancellationToken.None);
+
+        var update = provider.Updates[^1];
+        Assert.Equal(2, update.Addresses.Count);
+        Assert.Equal([IpFamily.IPv6], update.Changed);
+        Assert.Equal(SyncOutcome.Unchanged, report.Entries.Single(e => e.Family == IpFamily.IPv4).Result.Outcome);
+        Assert.Equal(SyncOutcome.Updated, report.Entries.Single(e => e.Family == IpFamily.IPv6).Result.Outcome);
     }
 
     [Fact]

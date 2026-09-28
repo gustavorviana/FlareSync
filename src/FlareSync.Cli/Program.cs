@@ -4,6 +4,7 @@ using FlareSync.Core.Abstractions;
 using FlareSync.Core.Commands;
 using FlareSync.Core.Commands.Builtin;
 using FlareSync.Providers.Cloudflare;
+using FlareSync.Providers.DynDns2;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
@@ -11,6 +12,8 @@ Console.OutputEncoding = System.Text.Encoding.UTF8;
 IProviderModule[] modules =
 [
     new CloudflareModule(),
+    new DynDns2Module(DynDns2Preset.NoIp),
+    new DynDns2Module(DynDns2Preset.Generic),
 ];
 
 var catalog = new CommandCatalog().AddBuiltinCommands();

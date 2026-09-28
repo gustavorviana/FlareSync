@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\FlareSync.Core\FlareSync.Core.csproj" />
     <ProjectReference Include="..\..\src\FlareSync.Providers.Cloudflare\FlareSync.Providers.Cloudflare.csproj" />
     <ProjectReference Include="..\..\src\FlareSync.Cli\FlareSync.Cli.csproj" />
+    <ProjectReference Include="..\..\src\FlareSync.Providers.DynDns2\FlareSync.Providers.DynDns2.csproj" />
   </ItemGroup>
 
 </Project>

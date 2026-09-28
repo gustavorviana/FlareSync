@@ -29,9 +29,21 @@ public interface IDnsProvider
     /// <summary>Loads the records currently configured for this provider.</summary>
     Task<IReadOnlyList<DnsTarget>> GetTargetsAsync(CancellationToken cancellationToken);
 
-    /// <summary>Makes the record of <paramref name="family"/> for <paramref name="target"/> point to <paramref name="address"/>.</summary>
-    Task<SyncResult> UpsertAsync(DnsTarget target, IpFamily family, IPAddress address, CancellationToken cancellationToken);
+    /// <summary>
+    /// Updates the records of one target. Called only when <see cref="DnsUpdate.Changed"/> is not empty.
+    /// Returns a result per family; families of <see cref="DnsUpdate.Changed"/> without a result count as failed.
+    /// </summary>
+    Task<IReadOnlyDictionary<IpFamily, SyncResult>> UpdateAsync(DnsUpdate update, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Update request for one target. <see cref="Addresses"/> holds every enabled and detected family (protocols such as
+/// DynDNS2 send them together); <see cref="Changed"/> the families whose address differs from the last applied one.
+/// </summary>
+public sealed record DnsUpdate(
+    DnsTarget Target,
+    IReadOnlyDictionary<IpFamily, IPAddress> Addresses,
+    IReadOnlySet<IpFamily> Changed);
 
 /// <summary>Detects the public address of the host.</summary>
 public interface IIpResolver

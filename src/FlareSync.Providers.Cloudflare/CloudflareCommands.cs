@@ -21,14 +21,7 @@ internal static class CloudflareCommands
         Description = "Only print the link; do not try to open a browser.",
     };
 
-    private static readonly ArgumentDefinition<string> HostnameArgument = new()
-    {
-        Name = "hostname",
-        Description = "Fully qualified host name, e.g. home.example.com.",
-        Validator = v => Uri.CheckHostName(ZoneMatcher.Normalize(v)) == UriHostNameType.Dns && v.Contains('.')
-            ? null
-            : $"'{v}' is not a valid host name.",
-    };
+    private static readonly ArgumentDefinition<string> HostnameArgument = CommandHelpers.HostnameArgument();
 
     private static readonly OptionDefinition<bool> NoIPv4Option = new() { Name = "--no-ipv4", Description = "Do not manage the A (IPv4) record." };
 
@@ -333,14 +326,9 @@ internal static class CloudflareCommands
         return exitCode;
     }
 
-    private static string Families(CloudflareRecord r) => (r.IPv4, r.IPv6) switch
-    {
-        (true, true) => "IPv4 + IPv6",
-        (true, false) => "IPv4 only",
-        _ => "IPv6 only",
-    };
+    private static string Families(CloudflareRecord r) => CommandHelpers.FormatFamilies(r.IPv4, r.IPv6);
 
     private static string Ttl(CloudflareRecord r) => r.Proxied || r.Ttl == CloudflareRecord.AutomaticTtl ? "auto" : r.Ttl + "s";
 
-    private static string YesNo(bool value) => value ? "yes" : "no";
+    private static string YesNo(bool value) => CommandHelpers.YesNo(value);
 }

@@ -33,10 +33,14 @@ internal sealed class FakeHttpHandler(Func<HttpRequestMessage, Task<HttpResponse
 {
     public List<(HttpMethod Method, string Url, string? Body)> Requests { get; } = [];
 
+    /// <summary>Raw header values per request (e.g. <c>Authorization</c>, <c>User-Agent</c>).</summary>
+    public List<Dictionary<string, string>> Headers { get; } = [];
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
         Requests.Add((request.Method, request.RequestUri!.ToString(), body));
+        Headers.Add(request.Headers.NonValidated.ToDictionary(h => h.Key, h => h.Value.ToString(), StringComparer.OrdinalIgnoreCase));
         return await respond(request);
     }
 

@@ -7,6 +7,8 @@ changing behavior, and update them when requirements change.
 - `src/FlareSync.Core` — abstractions (`IProviderModule`, `IDnsProvider`, `IIpResolver`, `IHostResolver`), neutral
   command model + `CommandCatalog` (`Commands/`), built-in commands, config, secrets, IP detection, sync orchestration.
 - `src/FlareSync.Providers.Cloudflare` — Cloudflare module.
+- `src/FlareSync.Providers.DynDns2` — generic DynDNS2 module; one instance per `DynDns2Preset` (`noip`, `dyndns2`),
+  per-instance services registered as keyed services by preset name.
 - `src/FlareSync.Cli` — `flaresync` executable: System.CommandLine adapter, `run` (Generic Host + `SyncWorker`).
 - `tests/FlareSync.Tests` — xUnit; tests carry `[Trait("Req", "FR-xxx")]` pointing at PRD requirements.
 

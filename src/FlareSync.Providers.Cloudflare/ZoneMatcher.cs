@@ -15,5 +15,5 @@ public static class ZoneMatcher
             .MaxBy(z => z.Name.Length);
     }
 
-    public static string Normalize(string hostname) => hostname.Trim().TrimEnd('.').ToLowerInvariant();
+    public static string Normalize(string hostname) => FlareSync.Core.Commands.CommandHelpers.NormalizeHostname(hostname);
 }

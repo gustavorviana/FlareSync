@@ -10,7 +10,10 @@ FlareSync must support new DNS providers in the future without changes to the co
   - registers its services (`ConfigureServices`), including an `IDnsProvider` whose `Name` equals the module name;
   - registers its commands in the central `CommandCatalog` (`RegisterCommands`).
 - **FR-305** An `IDnsProvider` returns the DNS targets it manages (`GetTargetsAsync`, read from its configuration file on
-  every call) and upserts a record for one address family (`UpsertAsync`).
+  every call) and updates one target at a time (`UpdateAsync(DnsUpdate)`): the request carries every enabled and
+  detected address plus the set of families that changed, and returns a result per changed family (see ADR 0005).
+- **FR-306** One module class may be instantiated several times (e.g. one DynDNS2 module per preset). Each instance has
+  its own name, configuration file and command group; per-instance services are registered as keyed services.
 - **FR-301** Modules depend only on `FlareSync.Core`. They never reference `System.CommandLine` or the CLI project.
 - **FR-302** Commands are described with the neutral model in `FlareSync.Core.Commands`
   (`CommandDefinition`, `ArgumentDefinition<T>`, `OptionDefinition<T>`, `CommandContext`, `ICommandConsole`).

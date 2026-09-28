@@ -1,4 +1,5 @@
 using System.Net;
+using FlareSync.Core;
 using FlareSync.Core.Abstractions;
 using FlareSync.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -20,17 +21,32 @@ public sealed class CloudflareDnsProvider(
             .ToList();
     }
 
-    public async Task<SyncResult> UpsertAsync(DnsTarget target, IpFamily family, IPAddress address, CancellationToken cancellationToken)
+    public async Task<IReadOnlyDictionary<IpFamily, SyncResult>> UpdateAsync(DnsUpdate update, CancellationToken cancellationToken)
     {
         var config = await configStore.LoadAsync(cancellationToken);
-        var record = config.Find(target.Hostname) ?? target.ProviderData as CloudflareRecord;
+        var record = config.Find(update.Target.Hostname) ?? update.Target.ProviderData as CloudflareRecord;
         if (record is null)
         {
-            return SyncResult.Failed($"record '{target.Hostname}' is not configured");
+            return update.Changed.ToDictionary(f => f, _ => SyncResult.Failed($"record '{update.Target.Hostname}' is not configured"));
         }
 
         var token = configStore.GetToken(config);
-        return await UpsertAsync(token, record, family, address, cancellationToken);
+        var results = new Dictionary<IpFamily, SyncResult>();
+
+        // A and AAAA are independent records at Cloudflare: only touch the families that changed.
+        foreach (var family in update.Changed)
+        {
+            try
+            {
+                results[family] = await UpsertAsync(token, record, family, update.Addresses[family], cancellationToken);
+            }
+            catch (FlareSyncException ex)
+            {
+                results[family] = SyncResult.Failed(ex.Message);
+            }
+        }
+
+        return results;
     }
 
     internal async Task<SyncResult> UpsertAsync(

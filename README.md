@@ -1,7 +1,8 @@
 # FlareSync
 
 A modular dynamic DNS client. FlareSync detects the public IPv4/IPv6 address of the host and keeps DNS records
-up to date at your DNS provider. The first supported provider is **Cloudflare**.
+up to date at your DNS provider. Supported providers: **Cloudflare**, **No-IP** and any **DynDNS2**-compatible
+service.
 
 - Multiple host names, IPv4 (`A`) and IPv6 (`AAAA`).
 - Configurable IP sources with fallback (default: `am.i.mullvad.net`).
@@ -43,6 +44,8 @@ config/
   state.json              last address applied to each record
   providers/
     cloudflare.json       Cloudflare token (encrypted) + records
+    noip.json             No-IP credentials (password encrypted) + hosts
+    dyndns2.json          generic DynDNS2 service: update URL, credentials + hosts
 ```
 
 ## Commands
@@ -67,6 +70,11 @@ config/
 | `cloudflare list` | List managed host names |
 | `cloudflare set <hostname> [--ipv4 B] [--ipv6 B] [--proxied B] [--ttl N]` | Change a host name |
 | `cloudflare remove <hostname>` | Stop managing a host name (the DNS record is kept) |
+| `noip login [--username U] [--password P] [--contact E] [--user-agent A]` | Store No-IP credentials and the User-Agent contact |
+| `noip add <hostname> [--no-ipv4] [--no-ipv6] [--create]` | Keep a No-IP host updated |
+| `noip list \| set <hostname> [--ipv4 B] [--ipv6 B] \| remove <hostname> \| logout` | Manage No-IP hosts |
+| `noip unblock [hostname]` | Resume updates after a fatal answer (badauth, abuse, nohost...) |
+| `dyndns2 ...` | Same commands for any DynDNS2 service; `login` also takes `--server <update URL>` |
 
 Global options: `--config-dir <dir>`, `-v|--verbose`, `-h|--help`.
 
@@ -79,6 +87,30 @@ encrypted in `providers/cloudflare.json`.
 
 OAuth-style login is not possible: Cloudflare does not offer OAuth client registration for third-party applications
 (see [ADR 0003](docs/adr/0003-no-oauth-login.md)).
+
+## No-IP and other DynDNS2 services
+
+```sh
+./flaresync noip login                  # asks for username, password (hidden) and a contact e-mail
+./flaresync noip add home.ddns.net --create
+```
+
+- Use your No-IP account e-mail and password, or the username/password of a No-IP **DDNS Key**.
+- No-IP requires a User-Agent with a maintainer contact. FlareSync sends `FlareSync FlareSync/<os>-<version> <contact>`;
+  change the first part with `--user-agent "Company Program/Version"` (`--user-agent default` restores it).
+- The protocol has no read-only call, so credentials are checked on the first update (`add --create` does it at once).
+- Updates are only sent when the address changes. Fatal answers stop updates until you act:
+  `badauth`, `badagent`, `!donator`, `abuse` block the account (`noip login` or `noip unblock` resumes),
+  `nohost`/`notfqdn` block that host (`noip unblock <host>`), `911` waits 30 minutes. `flaresync noip list` shows the
+  current state.
+- Use `sync --force` sparingly with No-IP: repeated `nochg` answers can get the account blocked.
+
+For another DynDNS2-compatible service use the `dyndns2` group and give its update URL:
+
+```sh
+./flaresync dyndns2 login --server https://example.com/nic/update
+./flaresync dyndns2 add home.example.com
+```
 
 ## Install as a systemd service
 
@@ -128,3 +160,6 @@ Key sources, in order: systemd credential `flaresync-key`, `FLARESYNC_MASTER_KEY
 See [PRD 0004](docs/prd/0004-module-system.md). In short: create `src/FlareSync.Providers.<Name>` referencing only
 `FlareSync.Core`, implement `IDnsProvider` and `IProviderModule`, describe commands with the neutral command model and
 add the module to `src/FlareSync.Cli/Program.cs`.
+
+A DynDNS2-compatible service only needs a new `DynDns2Preset` (name, display name, update URL) and a
+`new DynDns2Module(preset)` line in `Program.cs`.

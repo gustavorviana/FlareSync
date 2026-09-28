@@ -3,6 +3,7 @@
     <Project Path="src/FlareSync.Cli/FlareSync.Cli.csproj" />
     <Project Path="src/FlareSync.Core/FlareSync.Core.csproj" />
     <Project Path="src/FlareSync.Providers.Cloudflare/FlareSync.Providers.Cloudflare.csproj" />
+    <Project Path="src/FlareSync.Providers.DynDns2/FlareSync.Providers.DynDns2.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/FlareSync.Tests/FlareSync.Tests.csproj" />

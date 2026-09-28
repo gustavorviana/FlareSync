@@ -63,54 +63,69 @@ public sealed class SyncOrchestrator(
 
         foreach (var (provider, target) in targets)
         {
-            foreach (var family in Enum.GetValues<IpFamily>())
-            {
-                if (!target.Uses(family))
-                {
-                    continue;
-                }
-
-                var detection = detections[family];
-                var result = detection.Address is { } address
-                    ? await SyncRecordAsync(provider, target, family, address, force, cancellationToken)
-                    : SyncResult.Skipped($"no public {family} address detected");
-                entries.Add(new SyncEntry(provider.Name, target.Hostname, family, detection.Address, result));
-            }
+            entries.AddRange(await SyncTargetAsync(provider, target, detections, force, cancellationToken));
         }
 
         return new SyncReport(detections.Values.ToList(), entries);
     }
 
-    private async Task<SyncResult> SyncRecordAsync(
-        IDnsProvider provider, DnsTarget target, IpFamily family, IPAddress address, bool force, CancellationToken cancellationToken)
+    private async Task<List<SyncEntry>> SyncTargetAsync(
+        IDnsProvider provider, DnsTarget target, IReadOnlyDictionary<IpFamily, IpDetection> detections, bool force, CancellationToken cancellationToken)
     {
-        var text = address.ToString();
-        if (!force)
+        var families = Enum.GetValues<IpFamily>().Where(target.Uses).ToList();
+        var addresses = new Dictionary<IpFamily, IPAddress>();
+        var changed = new HashSet<IpFamily>();
+        var results = new Dictionary<IpFamily, SyncResult>();
+
+        foreach (var family in families)
         {
-            var last = await state.GetAsync(provider.Name, target.Hostname, family, cancellationToken);
-            if (last?.Address == text)
+            if (detections[family].Address is not { } address)
             {
-                return SyncResult.Unchanged("address unchanged since last sync");
+                results[family] = SyncResult.Skipped($"no public {family} address detected");
+                continue;
+            }
+
+            addresses[family] = address;
+            var last = force ? null : await state.GetAsync(provider.Name, target.Hostname, family, cancellationToken);
+            if (last?.Address == address.ToString())
+            {
+                results[family] = SyncResult.Unchanged("address unchanged since last sync");
+            }
+            else
+            {
+                changed.Add(family);
             }
         }
 
-        SyncResult result;
-        try
+        if (changed.Count > 0)
         {
-            result = await provider.UpsertAsync(target, family, address, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
-        {
-            result = SyncResult.Failed(ex.Message);
+            IReadOnlyDictionary<IpFamily, SyncResult> providerResults;
+            try
+            {
+                providerResults = await provider.UpdateAsync(new DnsUpdate(target, addresses, changed), cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                providerResults = changed.ToDictionary(f => f, _ => SyncResult.Failed(ex.Message));
+            }
+
+            foreach (var family in changed)
+            {
+                var result = providerResults.GetValueOrDefault(family) ?? SyncResult.Failed("the provider returned no result");
+                var text = addresses[family].ToString();
+                if (result.Succeeded)
+                {
+                    await state.SetAsync(provider.Name, target.Hostname, family, text, cancellationToken);
+                }
+
+                LogResult(provider.Name, target.Hostname, family, text, result);
+                results[family] = result;
+            }
         }
 
-        if (result.Succeeded)
-        {
-            await state.SetAsync(provider.Name, target.Hostname, family, text, cancellationToken);
-        }
-
-        LogResult(provider.Name, target.Hostname, family, text, result);
-        return result;
+        return families
+            .Select(f => new SyncEntry(provider.Name, target.Hostname, f, detections[f].Address, results[f]))
+            .ToList();
     }
 
     private void LogResult(string provider, string hostname, IpFamily family, string address, SyncResult result)
