@@ -11,6 +11,7 @@ changing behavior, and update them when requirements change.
   per-instance services registered as keyed services by preset name.
 - `src/FlareSync.Cli` — `flaresync` executable: System.CommandLine adapter, `run` (Generic Host + `SyncWorker`).
 - `tests/FlareSync.Tests` — xUnit; tests carry `[Trait("Req", "FR-xxx")]` pointing at PRD requirements.
+- `.github/workflows/ci.yml` — tests, version from Conventional Commits, Linux/Windows release (ADR 0006).
 
 ## Rules
 - All user-visible text (help, prompts, errors, logs), code comments and docs are in **English**.

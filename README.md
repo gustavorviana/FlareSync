@@ -23,6 +23,13 @@ dotnet test
 dotnet publish src/FlareSync.Cli -c Release -r linux-x64 -o out
 ```
 
+## Releases
+
+Every push to `main` runs the tests on Linux and Windows. When they pass and the new commits include a `feat`, `fix`,
+`perf` or breaking change (Conventional Commits), the next version is computed, the Linux (`.tar.gz`) and Windows
+(`.zip`) binaries are built and published as a GitHub release tagged `vX.Y.Z`
+(see [ADR 0006](docs/adr/0006-versioning-and-releases.md)).
+
 ## Quick start
 
 ```sh
