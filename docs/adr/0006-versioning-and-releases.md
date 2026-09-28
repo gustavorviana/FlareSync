@@ -13,8 +13,8 @@ Commit messages already follow Conventional Commits.
 - On a push to `main`, after the tests pass, `mathieudutour/github-tag-action` computes the next version from the
   commits since the last `v*` tag (dry run): breaking change (`type!:` or `BREAKING CHANGE:`) → major, `feat` → minor,
   `fix`/`perf` → patch. Other types (`docs`, `chore`, `test`, `refactor`...) do not produce a release.
-- The version is passed to `dotnet publish -p:Version=...` for `linux-x64` (`.tar.gz`, with the systemd unit) and
-  `win-x64` (`.zip`).
+- The version is passed to `dotnet publish -p:Version=...` for `linux-x64` (`.tar.gz`, with the systemd unit, plus a
+  `.deb` built by `deploy/build-deb.sh` that creates the service user and enables the service) and `win-x64` (`.zip`).
 - Only when both builds succeed is the tag `vX.Y.Z` created, together with a GitHub release that carries the archives
   and the changelog.
 - A manually pushed `vX.Y.Z` tag skips the version computation: after the tests pass, that tag's version is built and

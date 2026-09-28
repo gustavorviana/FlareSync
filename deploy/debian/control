@@ -1,0 +1,14 @@
+Package: flaresync
+Version: @VERSION@
+Section: net
+Priority: optional
+Architecture: amd64
+Maintainer: @MAINTAINER@
+Installed-Size: @SIZE@
+Depends: libc6, libgcc-s1, libstdc++6, libssl3 | libssl3t64 | libssl1.1, ca-certificates
+Homepage: https://github.com/gustavorviana/FlareSync
+Description: Modular dynamic DNS client
+ FlareSync detects the public IPv4/IPv6 address of the host and keeps DNS
+ records up to date at Cloudflare, No-IP or any DynDNS2-compatible service.
+ Installs and starts the "flaresync" systemd service, running as the
+ "flaresync" system user with its configuration in /opt/flaresync/config.

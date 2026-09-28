@@ -1,0 +1,44 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+    if ! getent passwd flaresync >/dev/null; then
+        useradd --system --user-group --home-dir /opt/flaresync --no-create-home \
+            --shell /usr/sbin/nologin --comment "FlareSync dynamic DNS client" flaresync
+    fi
+
+    install -d -o flaresync -g flaresync -m 700 /opt/flaresync/config
+
+    # Idempotent: creates the default settings and the master key only when they are missing.
+    if ! runuser -u flaresync -- /opt/flaresync/flaresync init >/dev/null; then
+        echo "flaresync: 'flaresync init' failed; run it manually: sudo -u flaresync flaresync init" >&2
+    fi
+
+    service="installed, but systemd is not running: start it with 'flaresync run'"
+    if [ -d /run/systemd/system ]; then
+        systemctl daemon-reload
+        systemctl enable flaresync.service >/dev/null 2>&1 || true
+        # Also picks up the new binary on upgrades.
+        if systemctl restart flaresync.service; then
+            service="enabled and running"
+        else
+            service="enabled, but it did not start: see journalctl -u flaresync"
+        fi
+    fi
+
+    if [ -z "$2" ]; then
+        cat <<EOF
+
+FlareSync is installed. The "flaresync" service is $service.
+Configure it as the service user, for example:
+
+  sudo -u flaresync flaresync cloudflare login
+  sudo -u flaresync flaresync cloudflare add home.example.com
+
+Changes are picked up on the next sync cycle; logs: journalctl -u flaresync -f
+
+EOF
+    fi
+fi
+
+exit 0

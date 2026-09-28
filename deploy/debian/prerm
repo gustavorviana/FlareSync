@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+# On upgrade the service keeps running; the new postinst restarts it.
+if [ "$1" = "remove" ] && [ -d /run/systemd/system ]; then
+    systemctl stop flaresync.service || true
+    systemctl disable flaresync.service >/dev/null 2>&1 || true
+fi
+
+exit 0

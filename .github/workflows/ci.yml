@@ -143,10 +143,18 @@ jobs:
           else
             (cd publish && zip -r "../$name.zip" .)
           fi
+      # Installs to /opt/flaresync and sets up the flaresync user and systemd service (see deploy/debian).
+      - name: Debian package
+        if: matrix.rid == 'linux-x64'
+        env:
+          MAINTAINER: ${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>
+        run: bash deploy/build-deb.sh "$VERSION" publish .
       - uses: actions/upload-artifact@v4
         with:
           name: flaresync-${{ matrix.rid }}
-          path: flaresync-${{ env.VERSION }}-${{ matrix.rid }}.${{ matrix.archive }}
+          path: |
+            flaresync-${{ env.VERSION }}-${{ matrix.rid }}.${{ matrix.archive }}
+            flaresync_${{ env.VERSION }}_amd64.deb
           if-no-files-found: error
 
   release:

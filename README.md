@@ -126,6 +126,22 @@ For another DynDNS2-compatible service use the `dyndns2` group and give its upda
 ./flaresync dyndns2 add home.example.com
 ```
 
+## Install from the .deb package (Debian/Ubuntu)
+
+Each release ships a `flaresync_X.Y.Z_amd64.deb`. It installs the binary to `/opt/flaresync` (with
+`/usr/bin/flaresync`), creates the `flaresync` system user and `/opt/flaresync/config`, runs `init`, and enables and
+starts the `flaresync` service:
+
+```sh
+sudo apt install ./flaresync_X.Y.Z_amd64.deb
+sudo -u flaresync flaresync cloudflare login
+sudo -u flaresync flaresync cloudflare add home.example.com
+journalctl -u flaresync -f
+```
+
+Upgrading (installing a newer `.deb`) restarts the service and keeps the configuration. `sudo apt remove flaresync`
+stops and disables the service but keeps `/opt/flaresync/config`; `sudo apt purge flaresync` also deletes it.
+
 ## Install as a systemd service
 
 ```sh
