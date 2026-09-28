@@ -2,9 +2,12 @@ name: CI
 
 # Pull requests: tests only.
 # Push to main: tests -> next version from Conventional Commits -> Linux and Windows builds -> tag + GitHub release.
+# Push of a manual vX.Y.Z tag: tests -> version taken from the tag -> Linux and Windows builds -> GitHub release.
+# Tags created by this workflow (GITHUB_TOKEN) do not start a new run, so a release is never built twice.
 on:
   push:
     branches: [main]
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
   pull_request:
   workflow_dispatch:
 
@@ -38,18 +41,21 @@ jobs:
   version:
     name: Version
     needs: test
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     # The version computed here is what the build and release jobs consume.
     outputs:
-      version: ${{ steps.semver.outputs.new_version }}
-      tag: ${{ steps.semver.outputs.new_tag }}
+      version: ${{ steps.semver.outputs.new_version || steps.manual.outputs.version }}
+      tag: ${{ steps.semver.outputs.new_tag || steps.manual.outputs.tag }}
       changelog: ${{ steps.semver.outputs.changelog }}
     steps:
       # Dry run: only computes the version. The tag is created by the release job, after the builds succeed.
       # default_bump false: only feat, fix/perf and breaking changes produce a release.
       - name: Compute the next version (semver)
         id: semver
+        if: github.ref_type == 'branch'
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -58,12 +64,20 @@ jobs:
           default_bump: false
           dry_run: true
 
+      # A manually pushed tag is the version itself: no bump, the release is built for that tag.
+      - name: Take the version from the pushed tag
+        id: manual
+        if: github.ref_type == 'tag'
+        run: |
+          echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Publish the versions to the log, summary and environment
         env:
           PREVIOUS_VERSION: ${{ steps.semver.outputs.previous_version }}
           PREVIOUS_TAG: ${{ steps.semver.outputs.previous_tag }}
-          NEW_VERSION: ${{ steps.semver.outputs.new_version }}
-          NEW_TAG: ${{ steps.semver.outputs.new_tag }}
+          NEW_VERSION: ${{ steps.semver.outputs.new_version || steps.manual.outputs.version }}
+          NEW_TAG: ${{ steps.semver.outputs.new_tag || steps.manual.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -152,9 +166,17 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           CHANGELOG: ${{ needs.version.outputs.changelog }}
         run: |
-          printf '%s\n' "$CHANGELOG" > notes.md
+          # Manual tags have no computed changelog: let GitHub generate the notes.
+          if [ -n "$CHANGELOG" ]; then
+            printf '%s\n' "$CHANGELOG" > notes.md
+            notes=(--notes-file notes.md)
+          else
+            notes=(--generate-notes)
+          fi
+
+          # Creates the tag on this commit when it does not exist yet (automatic version); a manual tag is reused.
           gh release create "$TAG" dist/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$TAG" \
-            --notes-file notes.md
+            "${notes[@]}"

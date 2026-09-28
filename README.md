@@ -30,6 +30,13 @@ Every push to `main` runs the tests on Linux and Windows. When they pass and the
 (`.zip`) binaries are built and published as a GitHub release tagged `vX.Y.Z`
 (see [ADR 0006](docs/adr/0006-versioning-and-releases.md)).
 
+To release a specific version by hand, push a tag; the same pipeline builds and publishes it:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
 ## Quick start
 
 ```sh
