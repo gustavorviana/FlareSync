@@ -35,9 +35,10 @@ Cloudflare account and choose which host names to keep updated, entirely from th
 ### Records
 - **FR-120** `cloudflare zones` lists the zones visible to the token.
 - **FR-121** `cloudflare add <hostname>` finds the zone as the longest zone name that is a suffix of the host name
-  and stores its id. Options: `--ipv4/--no-ipv4`, `--ipv6/--no-ipv6`, `--proxied`, `--ttl`, `--create`.
+  and stores its id. Options: `--family ipv4|ipv6|both` (default `ipv4`), `--proxied`, `--ttl`, `--create`.
 - **FR-122** `--create` creates the DNS record immediately when it does not exist.
-- **FR-123** `cloudflare list`, `cloudflare remove <hostname>`, `cloudflare set <hostname> [options]` manage records.
+- **FR-123** `cloudflare list`, `cloudflare remove <hostname>`, `cloudflare set <hostname> [--family F] [--proxied B] [--ttl N]`
+  manage records.
 
 ### Sync
 - **FR-130** Upsert: look up the record by type and name; no-op when content matches, `PATCH` when it differs,

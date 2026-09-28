@@ -358,6 +358,28 @@ public class DynDns2CommandTests
 
     [Fact]
     [Trait("Req", "FR-432")]
+    public async Task Add_defaults_to_ipv4_and_set_changes_the_family()
+    {
+        using var h = new DynDns2ProviderTests.Harness();
+        var root = new DynDns2Commands(h.Preset).Create();
+        var add = Find(root, "add");
+        var set = Find(root, "set");
+        var addHost = (ArgumentDefinition<string>)add.Arguments[0];
+        var setHost = (ArgumentDefinition<string>)set.Arguments[0];
+
+        await RunAsync(h, add, new FakeValues().Set(addHost, "home.ddns.net"), new FakeConsole());
+        var record = Assert.Single((await h.Store.LoadAsync(CancellationToken.None)).Records);
+        Assert.True(record.IPv4);
+        Assert.False(record.IPv6);
+
+        await RunAsync(h, set, new FakeValues().Set(setHost, "home.ddns.net").Set(Option<OptionDefinition<IpFamilies?>>(set, "--family"), IpFamilies.Both), new FakeConsole());
+        record = Assert.Single((await h.Store.LoadAsync(CancellationToken.None)).Records);
+        Assert.True(record.IPv4);
+        Assert.True(record.IPv6);
+    }
+
+    [Fact]
+    [Trait("Req", "FR-432")]
     public async Task Unblock_clears_account_and_host_blocks()
     {
         using var h = new DynDns2ProviderTests.Harness();

@@ -51,15 +51,11 @@ internal sealed class DynDns2Commands(DynDns2Preset preset)
         Required = false,
     };
 
-    private readonly OptionDefinition<bool> _noIPv4Option = new() { Name = "--no-ipv4", Description = "Do not send the IPv4 address." };
-
-    private readonly OptionDefinition<bool> _noIPv6Option = new() { Name = "--no-ipv6", Description = "Do not send the IPv6 address." };
+    private readonly OptionDefinition<IpFamilies> _familyOption = CommandHelpers.FamiliesOption("Addresses to send: ipv4, ipv6 or both");
 
     private readonly OptionDefinition<bool> _createOption = new() { Name = "--create", Description = "Send the update right away with the detected address." };
 
-    private readonly OptionDefinition<bool?> _setIPv4Option = new() { Name = "--ipv4", Description = "Send the IPv4 address (true/false)." };
-
-    private readonly OptionDefinition<bool?> _setIPv6Option = new() { Name = "--ipv6", Description = "Send the IPv6 address (true/false)." };
+    private readonly OptionDefinition<IpFamilies?> _setFamilyOption = CommandHelpers.OptionalFamiliesOption("Addresses to send: ipv4, ipv6 or both");
 
     private string Name => preset.Name;
 
@@ -142,15 +138,12 @@ internal sealed class DynDns2Commands(DynDns2Preset preset)
         Name = "add",
         Description = "Add a host name to keep updated.",
         Arguments = { _hostnameArgument },
-        Options = { _noIPv4Option, _noIPv6Option, _createOption },
+        Options = { _familyOption, _createOption },
         Handler = async ctx =>
         {
             var hostname = CommandHelpers.NormalizeHostname(ctx.Get(_hostnameArgument)!);
-            var record = new DynDns2Record { Hostname = hostname, IPv4 = !ctx.Get(_noIPv4Option), IPv6 = !ctx.Get(_noIPv6Option) };
-            if (!record.IPv4 && !record.IPv6)
-            {
-                throw new FlareSyncException("At least one of IPv4 or IPv6 must be enabled.");
-            }
+            var families = ctx.Get(_familyOption);
+            var record = new DynDns2Record { Hostname = hostname, IPv4 = families.UsesIPv4(), IPv6 = families.UsesIPv6() };
 
             var store = Store(ctx);
             var config = await store.LoadAsync(ctx.CancellationToken);
@@ -213,7 +206,7 @@ internal sealed class DynDns2Commands(DynDns2Preset preset)
         Name = "set",
         Description = "Change which addresses are sent for a host (also clears a host block).",
         Arguments = { _hostnameArgument },
-        Options = { _setIPv4Option, _setIPv6Option },
+        Options = { _setFamilyOption },
         Handler = async ctx =>
         {
             var hostname = CommandHelpers.NormalizeHostname(ctx.Get(_hostnameArgument)!);
@@ -221,20 +214,11 @@ internal sealed class DynDns2Commands(DynDns2Preset preset)
             var config = await store.LoadAsync(ctx.CancellationToken);
             var record = config.Find(hostname) ?? throw new FlareSyncException($"'{hostname}' is not configured.");
 
-            var ipv4 = ctx.Get(_setIPv4Option);
-            var ipv6 = ctx.Get(_setIPv6Option);
-            if (ipv4 is null && ipv6 is null)
-            {
-                throw new FlareSyncException($"Nothing to change. Use --ipv4 or --ipv6 (or 'flaresync {Name} unblock {hostname}').");
-            }
+            var families = ctx.Get(_setFamilyOption) ?? throw new FlareSyncException(
+                $"Nothing to change. Use --family (or 'flaresync {Name} unblock {hostname}').");
 
-            record.IPv4 = ipv4 ?? record.IPv4;
-            record.IPv6 = ipv6 ?? record.IPv6;
-            if (!record.IPv4 && !record.IPv6)
-            {
-                throw new FlareSyncException("At least one of IPv4 or IPv6 must be enabled.");
-            }
-
+            record.IPv4 = families.UsesIPv4();
+            record.IPv6 = families.UsesIPv6();
             record.Blocked = null;
             await store.SaveAsync(config, ctx.CancellationToken);
             await ctx.Service<SyncStateStore>().RemoveAsync(Name, hostname, ctx.CancellationToken);

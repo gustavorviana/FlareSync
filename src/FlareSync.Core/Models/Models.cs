@@ -8,6 +8,14 @@ public enum IpFamily
     IPv6,
 }
 
+/// <summary>Address families a host name keeps in sync, as chosen with <c>--family</c>.</summary>
+public enum IpFamilies
+{
+    IPv4,
+    IPv6,
+    Both,
+}
+
 /// <summary>A DNS host name managed by a provider, with the address families to keep in sync.</summary>
 public sealed record DnsTarget(string Provider, string Hostname, bool IPv4, bool IPv6)
 {

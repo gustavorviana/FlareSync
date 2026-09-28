@@ -47,7 +47,7 @@ References: https://www.noip.com/integrate/request, https://www.noip.com/integra
   (password without echo), clears blocks and the retry time. `--user-agent default` restores the default product.
   Because DynDNS2 has no read-only call, credentials are validated on the first update.
 - **FR-431** The generic preset requires `--server`.
-- **FR-432** `logout`, `add <host> [--no-ipv4] [--no-ipv6] [--create]`, `list`, `set <host> [--ipv4 B] [--ipv6 B]`,
+- **FR-432** `logout`, `add <host> [--family ipv4|ipv6|both] [--create]` (default `ipv4`), `list`, `set <host> [--family F]`,
   `remove <host>`, `unblock [host]`.
 
 ## Acceptance criteria

@@ -66,13 +66,13 @@ config/
 | `cloudflare login [--token T] [--no-browser]` | Store a Cloudflare API token |
 | `cloudflare logout` | Remove the token |
 | `cloudflare zones` | List zones accessible with the token |
-| `cloudflare add <hostname> [--no-ipv4] [--no-ipv6] [--proxied] [--ttl N] [--create]` | Manage a host name |
+| `cloudflare add <hostname> [--family ipv4\|ipv6\|both] [--proxied] [--ttl N] [--create]` | Manage a host name (default family: `ipv4`) |
 | `cloudflare list` | List managed host names |
-| `cloudflare set <hostname> [--ipv4 B] [--ipv6 B] [--proxied B] [--ttl N]` | Change a host name |
+| `cloudflare set <hostname> [--family F] [--proxied B] [--ttl N]` | Change a host name |
 | `cloudflare remove <hostname>` | Stop managing a host name (the DNS record is kept) |
 | `noip login [--username U] [--password P] [--contact E] [--user-agent A]` | Store No-IP credentials and the User-Agent contact |
-| `noip add <hostname> [--no-ipv4] [--no-ipv6] [--create]` | Keep a No-IP host updated |
-| `noip list \| set <hostname> [--ipv4 B] [--ipv6 B] \| remove <hostname> \| logout` | Manage No-IP hosts |
+| `noip add <hostname> [--family ipv4\|ipv6\|both] [--create]` | Keep a No-IP host updated (default family: `ipv4`) |
+| `noip list \| set <hostname> [--family F] \| remove <hostname> \| logout` | Manage No-IP hosts |
 | `noip unblock [hostname]` | Resume updates after a fatal answer (badauth, abuse, nohost...) |
 | `dyndns2 ...` | Same commands for any DynDNS2 service; `login` also takes `--server <update URL>` |
 

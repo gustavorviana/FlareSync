@@ -25,6 +25,25 @@ public static class CommandHelpers
         _ => "none",
     };
 
+    public static bool UsesIPv4(this IpFamilies families) => families != IpFamilies.IPv6;
+
+    public static bool UsesIPv6(this IpFamilies families) => families != IpFamilies.IPv4;
+
+    /// <summary><c>--family ipv4|ipv6|both</c> for adding a host name; IPv4 by default.</summary>
+    public static OptionDefinition<IpFamilies> FamiliesOption(string description) => new()
+    {
+        Name = "--family",
+        Description = description + ".",
+        DefaultValue = IpFamilies.IPv4,
+    };
+
+    /// <summary><c>--family ipv4|ipv6|both</c> for changing a host name; absent keeps the current value.</summary>
+    public static OptionDefinition<IpFamilies?> OptionalFamiliesOption(string description) => new()
+    {
+        Name = "--family",
+        Description = description + ".",
+    };
+
     /// <summary>Lower-case host name without surrounding spaces or trailing dot.</summary>
     public static string NormalizeHostname(string hostname) => hostname.Trim().TrimEnd('.').ToLowerInvariant();
 

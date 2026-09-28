@@ -232,16 +232,19 @@ public class CloudflareCommandTests
 
         var add = CloudflareCommands.Create().Subcommands.Single(c => c.Name == "add");
         var hostname = (ArgumentDefinition<string>)add.Arguments[0];
-        var noIpv6 = (OptionDefinition<bool>)add.Options.Single(o => o.Name == "--no-ipv6");
+        var family = (OptionDefinition<IpFamilies>)add.Options.Single(o => o.Name == "--family");
 
-        var exit = await h.RunAsync("add", new FakeValues().Set(hostname, "Home.Example.com").Set(noIpv6, true));
+        Assert.Equal(0, await h.RunAsync("add", new FakeValues().Set(hostname, "Home.Example.com")));
+        Assert.Equal(0, await h.RunAsync("add", new FakeValues().Set(hostname, "www.example.com").Set(family, IpFamilies.Both)));
 
-        Assert.Equal(0, exit);
-        var record = Assert.Single((await h.Store.LoadAsync(CancellationToken.None)).Records);
-        Assert.Equal("home.example.com", record.Hostname);
-        Assert.Equal("z1", record.ZoneId);
-        Assert.True(record.IPv4);
-        Assert.False(record.IPv6);
+        var records = (await h.Store.LoadAsync(CancellationToken.None)).Records;
+        Assert.Equal(2, records.Count);
+        Assert.Equal("home.example.com", records[0].Hostname);
+        Assert.Equal("z1", records[0].ZoneId);
+        Assert.True(records[0].IPv4);
+        Assert.False(records[0].IPv6);
+        Assert.True(records[1].IPv4);
+        Assert.True(records[1].IPv6);
     }
 
     [Fact]
@@ -256,9 +259,13 @@ public class CloudflareCommandTests
         var set = CloudflareCommands.Create().Subcommands.Single(c => c.Name == "set");
         var hostname = (ArgumentDefinition<string>)set.Arguments[0];
         var proxied = (OptionDefinition<bool?>)set.Options.Single(o => o.Name == "--proxied");
+        var family = (OptionDefinition<IpFamilies?>)set.Options.Single(o => o.Name == "--family");
 
-        Assert.Equal(0, await h.RunAsync("set", new FakeValues().Set(hostname, "home.example.com").Set(proxied, true)));
-        Assert.True((await h.Store.LoadAsync(CancellationToken.None)).Records[0].Proxied);
+        Assert.Equal(0, await h.RunAsync("set", new FakeValues().Set(hostname, "home.example.com").Set(proxied, true).Set(family, IpFamilies.IPv6)));
+        var record = (await h.Store.LoadAsync(CancellationToken.None)).Records[0];
+        Assert.True(record.Proxied);
+        Assert.False(record.IPv4);
+        Assert.True(record.IPv6);
         Assert.Null(await state.GetAsync("cloudflare", "home.example.com", IpFamily.IPv4, CancellationToken.None));
 
         Assert.Equal(0, await h.RunAsync("remove", new FakeValues().Set(hostname, "home.example.com")));

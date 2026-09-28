@@ -23,9 +23,8 @@ internal static class CloudflareCommands
 
     private static readonly ArgumentDefinition<string> HostnameArgument = CommandHelpers.HostnameArgument();
 
-    private static readonly OptionDefinition<bool> NoIPv4Option = new() { Name = "--no-ipv4", Description = "Do not manage the A (IPv4) record." };
-
-    private static readonly OptionDefinition<bool> NoIPv6Option = new() { Name = "--no-ipv6", Description = "Do not manage the AAAA (IPv6) record." };
+    private static readonly OptionDefinition<IpFamilies> FamilyOption =
+        CommandHelpers.FamiliesOption("Records to manage: ipv4 (A), ipv6 (AAAA) or both");
 
     private static readonly OptionDefinition<bool> ProxiedFlag = new() { Name = "--proxied", Description = "Proxy traffic through Cloudflare (orange cloud)." };
 
@@ -43,9 +42,8 @@ internal static class CloudflareCommands
         Description = "Create or update the DNS record right away with the detected address.",
     };
 
-    private static readonly OptionDefinition<bool?> SetIPv4Option = new() { Name = "--ipv4", Description = "Manage the A (IPv4) record (true/false)." };
-
-    private static readonly OptionDefinition<bool?> SetIPv6Option = new() { Name = "--ipv6", Description = "Manage the AAAA (IPv6) record (true/false)." };
+    private static readonly OptionDefinition<IpFamilies?> SetFamilyOption =
+        CommandHelpers.OptionalFamiliesOption("Records to manage: ipv4 (A), ipv6 (AAAA) or both");
 
     private static readonly OptionDefinition<bool?> SetProxiedOption = new() { Name = "--proxied", Description = "Proxy traffic through Cloudflare (true/false)." };
 
@@ -170,23 +168,19 @@ internal static class CloudflareCommands
         Name = "add",
         Description = "Add a host name to keep updated. The zone is detected from the host name.",
         Arguments = { HostnameArgument },
-        Options = { NoIPv4Option, NoIPv6Option, ProxiedFlag, TtlOption, CreateOption },
+        Options = { FamilyOption, ProxiedFlag, TtlOption, CreateOption },
         Handler = async ctx =>
         {
             var hostname = ZoneMatcher.Normalize(ctx.Get(HostnameArgument)!);
+            var families = ctx.Get(FamilyOption);
             var record = new CloudflareRecord
             {
                 Hostname = hostname,
-                IPv4 = !ctx.Get(NoIPv4Option),
-                IPv6 = !ctx.Get(NoIPv6Option),
+                IPv4 = families.UsesIPv4(),
+                IPv6 = families.UsesIPv6(),
                 Proxied = ctx.Get(ProxiedFlag),
                 Ttl = ctx.Get(TtlOption),
             };
-
-            if (!record.IPv4 && !record.IPv6)
-            {
-                throw new FlareSyncException("At least one of IPv4 or IPv6 must be enabled.");
-            }
 
             var store = ctx.Service<CloudflareConfigStore>();
             var config = await store.LoadAsync(ctx.CancellationToken);
@@ -239,7 +233,7 @@ internal static class CloudflareCommands
         Name = "set",
         Description = "Change the settings of a configured host name.",
         Arguments = { HostnameArgument },
-        Options = { SetIPv4Option, SetIPv6Option, SetProxiedOption, SetTtlOption },
+        Options = { SetFamilyOption, SetProxiedOption, SetTtlOption },
         Handler = async ctx =>
         {
             var hostname = ZoneMatcher.Normalize(ctx.Get(HostnameArgument)!);
@@ -247,23 +241,22 @@ internal static class CloudflareCommands
             var config = await store.LoadAsync(ctx.CancellationToken);
             var record = config.Find(hostname) ?? throw new FlareSyncException($"'{hostname}' is not configured.");
 
-            var ipv4 = ctx.Get(SetIPv4Option);
-            var ipv6 = ctx.Get(SetIPv6Option);
+            var families = ctx.Get(SetFamilyOption);
             var proxied = ctx.Get(SetProxiedOption);
             var ttl = ctx.Get(SetTtlOption);
-            if (ipv4 is null && ipv6 is null && proxied is null && ttl is null)
+            if (families is null && proxied is null && ttl is null)
             {
-                throw new FlareSyncException("Nothing to change. Use --ipv4, --ipv6, --proxied or --ttl.");
+                throw new FlareSyncException("Nothing to change. Use --family, --proxied or --ttl.");
             }
 
-            record.IPv4 = ipv4 ?? record.IPv4;
-            record.IPv6 = ipv6 ?? record.IPv6;
+            if (families is { } selected)
+            {
+                record.IPv4 = selected.UsesIPv4();
+                record.IPv6 = selected.UsesIPv6();
+            }
+
             record.Proxied = proxied ?? record.Proxied;
             record.Ttl = ttl ?? record.Ttl;
-            if (!record.IPv4 && !record.IPv6)
-            {
-                throw new FlareSyncException("At least one of IPv4 or IPv6 must be enabled.");
-            }
 
             await store.SaveAsync(config, ctx.CancellationToken);
             // Forget the last applied address so the next sync pushes the new settings.
